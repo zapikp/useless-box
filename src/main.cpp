@@ -22,10 +22,9 @@
 
 #define VIKO_CLOSE 166
 #define VIKO_FULL 95
-#define VIKO_STRED 105
+#define VIKO_STRED 110
 //urovne snimace
-#define IR_FREE 20
-#define IR_TOUCH 512
+#define IR_TOUCH 750
 //doba prebehu serv
 #define PREJEZD 800
 //nastaveni jasu
@@ -50,6 +49,9 @@ uint16_t  timeout=0;
 uint32_t  cas;
 uint8_t   stav=0;
 uint8_t   start=1;
+uint8_t   aktiv=0;
+uint8_t   aktiv_touch=0;
+uint8_t   viko_hyster=50;
 
 
 void setup() {
@@ -64,6 +66,7 @@ void setup() {
   serv_packa.write(PACKA_UVNITR);
   serv_viko.write(VIKO_CLOSE);
   Serial.begin(115200);
+  randomSeed(analogRead(A1));
   //pro ověření mezí serv
   /*
   while (1) {
@@ -75,13 +78,16 @@ void setup() {
     delay(10);
   }
   */
+  /*
   //overeni cinnosti infra cidla
   while (1) {
     Serial.println(analogRead(IR));
     delay(100);
   }
-
-
+  */
+  Serial.print(stav);
+  Serial.print(" Start ");
+  Serial.println(start);
 }
 
 void loop() {
@@ -97,37 +103,85 @@ void loop() {
     digitalWrite(ON,LOW);
     }
   }
-//obsluha události
+//obsluha události dotyk
+if (aktiv_touch < 4){
+  while ((analogRead(IR) < (IR_TOUCH-viko_hyster))&&(start==0)){
+    if (aktiv==0){
+      viko_hyster==0;
+    }
+    aktiv=1;
+
+    serv_viko.write(VIKO_STRED);
+    analogWrite(LED, LED_JAS);
+    if (digitalRead(SWITCH_OFF)==0){
+      break;
+    }
+    Serial.println(analogRead(IR));
+    delay(50);
+  }
+}
+
+  //Serial.println(analogRead(IR));
+  if ((aktiv==1)&&(analogRead(IR)> (IR_TOUCH-viko_hyster))){
+    viko_hyster=50;
+    if (digitalRead(SWITCH_OFF)==1){
+      for (uint8_t i=VIKO_STRED; i < VIKO_CLOSE; i++){
+        serv_viko.write(i);
+        delay(10);
+      }
+    }
+    aktiv=0;
+    analogWrite(LED, 0);
+  }
+//obsluha události switch
   if (digitalRead(SWITCH_OFF)==0){
     //switch_off_slow();
     //*
-    Serial.println(stav);
+    Serial.print(stav);
+    Serial.print(" Start ");
+    Serial.println(start);
+    aktiv_touch=0;
     switch(stav){
       case 0:
         switch_off();
+        aktiv_touch=random(0, 10);
+        Serial.print("Aktiv_touch: ");
+        Serial.println(aktiv_touch);
       break;
 
       case 1:
-        switch_touch_off();
+        switch_off_slow();
+        aktiv_touch=random(0, 10);
+        Serial.print("Aktiv_touch: ");
+        Serial.println(aktiv_touch);
       break;
 
       case 2:
-        //switch_out();
-        viko_boom();
+        switch_touch_off();
+        aktiv_touch=random(0, 10);
+        Serial.print("Aktiv_touch: ");
+        Serial.println(aktiv_touch);
       break;
 
       case 3:
-        //switch_boom();
-        switch_off_viko_slow()
+
+        switch_off_viko_slow();
+        aktiv_touch=random(0, 10);
+        Serial.print("Aktiv_touch: ");
+        Serial.println(aktiv_touch);
       break;
 
       case 4:
-        switch_off_slow();
-      break;
-      default:
+        viko_boom();
+        aktiv_touch=random(0, 10);
+        Serial.print("Aktiv_touch: ");
+        Serial.println(aktiv_touch);
         stav=0;
         start=0;
       break;
+
+
+
     }
 
     //*/
@@ -161,16 +215,16 @@ void switch_touch_off(){
   serv_viko.write(VIKO_FULL);
   serv_packa.write(PACKA_PACKA);
   analogWrite(LED, LED_JAS);
-  delay(PREJEZD/3);
-  serv_viko.write(VIKO_STRED);
-  delay(2000);
+  //delay(PREJEZD/3);
+  //serv_viko.write(VIKO_STRED);
+  delay(PREJEZD);
   serv_packa.write(PACKA_OFF);
   serv_viko.write(VIKO_FULL);
   while (digitalRead(SWITCH_OFF)==0){
     delay(10);
   }
   serv_packa.write(PACKA_UVNITR);
-  delay(PREJEZD);
+  delay(PREJEZD/2);
   serv_viko.write(VIKO_CLOSE);
   analogWrite(LED, 0);
 }
@@ -242,16 +296,21 @@ void switch_off_slow(){
 }
 
 void switch_off_viko_slow(){
-  for (uint8_t i=VIKO_CLOSE; i < VIKO_FULL; i++){
+  uint8_t jas_step=255/(VIKO_CLOSE-VIKO_FULL);
+  uint8_t jas_led=0;
+  for (uint8_t i=VIKO_CLOSE; i > VIKO_FULL; i--){
       serv_viko.write(i);
-      delay(10);
-      analogWrite(LED,map(i,VIKO_CLOSE, VIKO_FULL, 0, LED_JAS));
+      delay(40);
+      analogWrite(LED,jas_led);
+      jas_led=jas_led+jas_step;
   }
+  /*
   for (uint8_t i=PACKA_UVNITR; i < PACKA_PACKA; i++){
       serv_packa.write(i);
-      delay(10);
+      delay(1);
   }
   delay(PREJEZD/3);
+  */
   serv_packa.write(PACKA_OFF);
   while (digitalRead(SWITCH_OFF)==0){
     delay(10);
