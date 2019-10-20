@@ -3,7 +3,7 @@
 #include <Servo.h>
 
 //piny
-#define ON  13
+#define ON  2
 #define LED 3
 #define PACKA 9
 #define VIKO  10
@@ -60,6 +60,8 @@ void setup() {
   digitalWrite(ON,HIGH); //zapnuti napajeni
   pinMode(PACKA, OUTPUT);
   pinMode(VIKO,OUTPUT);
+  pinMode(SWITCH_OFF, INPUT_PULLUP);
+  pinMode(SWITCH_ON, INPUT_PULLUP);
   cas=millis();
   serv_packa.attach(PACKA);
   serv_viko.attach(VIKO);
@@ -107,7 +109,7 @@ void loop() {
 if (aktiv_touch < 4){
   while ((analogRead(IR) < (IR_TOUCH-viko_hyster))&&(start==0)){
     if (aktiv==0){
-      viko_hyster==0;
+      viko_hyster=0;
     }
     aktiv=1;
 
@@ -120,7 +122,7 @@ if (aktiv_touch < 4){
     delay(50);
   }
 }
-
+//zavreni vika
   //Serial.println(analogRead(IR));
   if ((aktiv==1)&&(analogRead(IR)> (IR_TOUCH-viko_hyster))){
     viko_hyster=50;
@@ -132,6 +134,7 @@ if (aktiv_touch < 4){
     }
     aktiv=0;
     analogWrite(LED, 0);
+    timeout=0;
   }
 //obsluha události switch
   if (digitalRead(SWITCH_OFF)==0){
